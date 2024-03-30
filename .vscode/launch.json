@@ -1,0 +1,33 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable 'bingrep'",
+      "cargo": {
+        "args": ["build", "--bin=bingrep", "--package=bingrep"],
+        "filter": {
+          "name": "bingrep",
+          "kind": "bin"
+        }
+      },
+      "args": ["abc", "def"],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in executable 'bingrep'",
+      "cargo": {
+        "args": ["test", "--no-run", "--bin=bingrep", "--package=bingrep"],
+        "filter": {
+          "name": "bingrep",
+          "kind": "bin"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}
