@@ -1,51 +1,68 @@
 #![warn(clippy::pedantic)]
 #![warn(clippy::never_loop)]
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use bingrep::filter::filter;
-use iter_tools::Itertools;
+use clap::Parser;
 use pretty_hex::{HexConfig, PrettyHex};
 use std::io::Read;
 
-fn main() -> Result<()> {
-    let args = std::env::args().skip(1).collect_vec();
-    let pattern = args.first().ok_or(anyhow!("missing pattern"))?;
+/// Search binaries
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Pattern
+    pattern: String,
+    /// File
+    file: Option<String>,
+    /// Number of times to greet
+    #[arg(long, default_value_t = 1)]
+    count: usize,
+    /// Show context of matches
+    #[arg(short, long)]
+    context: bool,
+}
 
+fn main() -> Result<()> {
+    let args = Args::parse();
     let mut buffer = Vec::<u8>::new();
-    let read_size = if let Some(file_path) = args.get(1) {
-        println!("file input: {pattern} {file_path}");
+    let read_size = if let Some(file_path) = args.file {
         let mut file = std::fs::File::open(file_path)?;
         file.read_to_end(&mut buffer)?
     } else {
-        println!("stdin input: {pattern}");
         std::io::stdin().read_to_end(&mut buffer)?
     };
 
-    println!("read: {read_size}");
-    // println!("{buffer:#04x?}");
+    dbg!(read_size);
 
-    let matches = filter(pattern, &buffer)?;
+    let matches = filter(&args.pattern, &buffer)?;
     for (i, &(start, end)) in matches.iter().enumerate() {
-        // println!("{rmatch:x?}: {slice:?}");
-        // let &(start, end) = rmatch;
-        let slice = &buffer[start..end];
-        println!(
-            "Match {i}/{len}: ({start:#x}, {end:#x})",
-            i = i + 1,
-            len = matches.len()
-        );
-        let cfg = HexConfig {
-            title: true,
-            ascii: false,
-            width: 16,
-            group: 4,
-            chunk: 1,
-            display_offset: start,
-            ..HexConfig::default()
-        };
-        println!("{:?}", slice.hex_conf(cfg));
+        if args.context {
+            let cfg = HexConfig {
+                title: true,
+                ascii: false,
+                width: 16,
+                group: 4,
+                chunk: 1,
+                display_offset: start,
+                max_bytes: 256,
+            };
+            let slice = &buffer[start..end];
+            // let slice = &buffer[start..start + 256];
+            println!(
+                "Match {i}/{len}: ({start:#x}, {end:#x}), {dump:?}",
+                i = i + 1,
+                len = matches.len(),
+                dump = slice.hex_conf(cfg)
+            );
+        } else {
+            println!(
+                "Match {i}/{len}: ({start:#x}, {end:#x})",
+                i = i + 1,
+                len = matches.len()
+            );
+        }
     }
-    dbg!(&matches.len());
 
     Ok(())
 }
