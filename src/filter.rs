@@ -60,7 +60,7 @@ mod tests {
     }
 
     #[test]
-    fn newline() {
+    fn dot_matches_new_line() {
         let pattern = r"\x01.*";
         let buffer = parse_buffer(
             "
