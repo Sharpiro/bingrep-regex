@@ -102,7 +102,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-/// Search binaries
+/// Search binary files with regex
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
