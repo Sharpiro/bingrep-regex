@@ -2,15 +2,22 @@
 #![warn(clippy::never_loop)]
 #![warn(clippy::unwrap_used)]
 #![warn(clippy::indexing_slicing)]
+#![warn(clippy::panic)]
+#![warn(clippy::todo)]
+#![warn(clippy::expect_used)]
+#![allow(clippy::let_and_return)]
+#![allow(clippy::missing_errors_doc)]
 
 use anyhow::Result;
-use bingrep::filter::filter;
 use clap::Parser;
+use filter::filter;
 use num_format::{Locale, ToFormattedString};
 use pretty_hex::{HexConfig, PrettyHex};
 use std::io::Read;
 use tracing::{debug, Level};
 use tracing_subscriber::FmtSubscriber;
+
+mod filter;
 
 const MAX_MATCH_COUNT: usize = 100;
 
@@ -22,8 +29,7 @@ fn main() -> Result<()> {
     };
     let subscriber = FmtSubscriber::builder().with_max_level(log_level).finish();
 
-    tracing::subscriber::set_global_default(subscriber)
-        .expect("Setting initial tracing subscriber failed.");
+    tracing::subscriber::set_global_default(subscriber)?;
 
     let args = Args::parse();
     let mut buffer = Vec::<u8>::new();
