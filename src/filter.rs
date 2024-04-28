@@ -3,6 +3,7 @@
 
 use anyhow::Result;
 
+/// Returns a list of matches. A match is equivalent to `[start..end]`
 pub fn filter(pattern: &str, buffer: &[u8]) -> Result<Vec<(usize, usize)>> {
     let regex = regex::bytes::RegexBuilder::new(pattern)
         .unicode(false)
@@ -53,10 +54,10 @@ mod tests {
         ",
         );
 
-        let &(start, stop) = filter(pattern, &buffer).unwrap().first().unwrap();
+        let &(start, end) = filter(pattern, &buffer).unwrap().first().unwrap();
 
         assert_eq!(start, 32);
-        assert_eq!(stop, 96);
+        assert_eq!(end, 96);
     }
 
     #[test]
@@ -69,9 +70,20 @@ mod tests {
         ",
         );
 
-        let &(start, stop) = filter(pattern, &buffer).unwrap().first().unwrap();
+        let &(start, end) = filter(pattern, &buffer).unwrap().first().unwrap();
 
         assert_eq!(start, 0);
-        assert_eq!(stop, 32);
+        assert_eq!(end, 32);
+    }
+
+    #[test]
+    fn plaintext() {
+        let pattern = r"(?i)rizard";
+        let buffer = b"CHARIZARD".as_slice();
+
+        let &(start, end) = filter(pattern, buffer).unwrap().first().unwrap();
+
+        assert_eq!(start, 3);
+        assert_eq!(end, 9);
     }
 }
