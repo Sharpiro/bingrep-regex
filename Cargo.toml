@@ -1,6 +1,6 @@
 [package]
-name = "bingrep"
-version = "0.1.1"
+name = "bingrep-regex"
+version = "0.1.2"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.81"
 clap = { version = "4.5.4", features = ["derive"] }
-iter_tools = "0.15.0"
+iter_tools = "0.17.0"
 num-format = "0.4.4"
 pretty-hex = "0.4.1"
 regex = "1.10.4"
