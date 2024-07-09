@@ -18,7 +18,10 @@ use iter_tools::Itertools;
 use num_format::{Locale, ToFormattedString};
 use options::get_context_range;
 use pretty_hex::{HexConfig, PrettyHex};
-use std::io::{stderr, Read};
+use std::{
+    borrow::Cow,
+    io::{stderr, Read},
+};
 use tracing::{debug, Level};
 use tracing_subscriber::FmtSubscriber;
 
@@ -69,7 +72,7 @@ fn main() -> Result<()> {
     debug!("file_size: {}", read_size.to_formatted_string(&Locale::en));
 
     let pattern = if args.raw {
-        get_raw_pattern(&args.pattern)?
+        get_raw_pattern(&args.pattern)
     } else {
         args.pattern
     };
@@ -119,14 +122,17 @@ fn parse_hex_or_digit(arg: &str) -> Result<usize> {
     Ok(arg.parse()?)
 }
 
-fn get_raw_pattern(pattern: &str) -> Result<String> {
-    let bytes: Vec<u8> = pattern
+fn get_raw_pattern(pattern: &str) -> String {
+    pattern
         .trim()
         .split(' ')
-        .map(|v| u8::from_str_radix(v, 16))
-        .try_collect()
-        .context("invalid raw bytes pattern")?;
-    let formatted_bytes = bytes.iter().map(|&v| format!(r"\x{v:02x}")).join("");
-
-    Ok(formatted_bytes)
+        .map(|v| {
+            let is_hex = u8::from_str_radix(v, 16).is_ok();
+            if is_hex {
+                Cow::from(format!(r"\x{v}"))
+            } else {
+                Cow::from(v)
+            }
+        })
+        .join("")
 }
