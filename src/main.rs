@@ -7,6 +7,9 @@
 #![warn(clippy::expect_used)]
 #![allow(clippy::let_and_return)]
 #![allow(clippy::missing_errors_doc)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::cast_precision_loss)]
 
 use anyhow::{Context, Result};
 use clap::Parser;
