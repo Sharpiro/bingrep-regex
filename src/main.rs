@@ -13,15 +13,14 @@ use clap::Parser;
 use filter::filter;
 use iter_tools::Itertools;
 use num_format::{Locale, ToFormattedString};
+use options::get_context_range;
 use pretty_hex::{HexConfig, PrettyHex};
-use std::{
-    cmp::max,
-    io::{stderr, Read},
-};
+use std::io::{stderr, Read};
 use tracing::{debug, Level};
 use tracing_subscriber::FmtSubscriber;
 
 mod filter;
+mod options;
 
 /// Search binary files with regex
 #[derive(Parser, Debug)]
@@ -31,18 +30,15 @@ struct Args {
     pattern: String,
     /// File
     file: Option<String>,
-    /// Show matches in binary
-    #[arg(short, long)]
-    r#match: bool,
-    /// Show matches with provided context size
+    /// Show additional lines of context
     #[arg(short,long, value_parser = parse_hex_or_digit)]
     context: Option<usize>,
     /// Treat pattern as raw binary. E.g. "de ad be ef"
     #[arg(short, long)]
     raw: bool,
-    /// Max number of matches to display
-    #[arg(short = 'M', long, default_value_t = 100)]
-    max_matches: usize,
+    /// Limit number of matches to display
+    #[arg(short, long)]
+    limit: Option<usize>,
 }
 
 fn main() -> Result<()> {
@@ -75,25 +71,22 @@ fn main() -> Result<()> {
         args.pattern
     };
     debug!("pattern: {}", &pattern);
+
+    let max_matches = args.limit.unwrap_or(usize::MAX);
     let matches = filter(&pattern, &buffer)?;
-    for (i, &(start, end)) in matches.iter().take(args.max_matches).enumerate() {
+    for (i, &(start, end)) in matches.iter().take(max_matches).enumerate() {
         let cfg = HexConfig {
             title: true,
             ascii: false,
             width: 16,
             group: 4,
             chunk: 1,
-            max_bytes: 256,
             ..Default::default()
         };
 
+        let match_len = end - start;
         let match_details = if let Some(context) = args.context {
-            let display_start = start.checked_sub(context).unwrap_or_default();
-            let display_end = context
-                .checked_add(0x10)
-                .and_then(|v| start.checked_add(v))
-                .unwrap_or_default();
-            let display_end = max(display_end, context);
+            let (display_start, display_end) = get_context_range(start, end, context);
             let slice = buffer
                 .get(display_start..display_end)
                 .ok_or(anyhow::anyhow!("out of bounds"))?;
@@ -102,31 +95,14 @@ fn main() -> Result<()> {
                 ..cfg
             };
             Some((slice, cfg))
-        } else if args.r#match {
-            let slice = buffer
-                .get(start..end)
-                .ok_or(anyhow::anyhow!("out of bounds"))?;
-            let cfg = HexConfig {
-                display_offset: start,
-                ..cfg
-            };
-            Some((slice, cfg))
         } else {
             None
         };
 
-        println!(
-            "{n}: [{start:#x}, {end:#x}): {len}",
-            n = i + 1,
-            len = end - start
-        );
+        println!("{n}: [{start:#x}, {end:#x}): {match_len}", n = i + 1);
         if let Some((slice, cfg)) = match_details {
             println!("{:?}", slice.hex_conf(cfg));
         }
-    }
-
-    if matches.len() > args.max_matches {
-        println!("...");
     }
 
     Ok(())

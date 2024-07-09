@@ -2,6 +2,7 @@
 #![allow(clippy::missing_errors_doc)]
 
 use anyhow::Result;
+use iter_tools::Itertools;
 
 /// Returns a list of matches. A match is equivalent to `[start..end]`
 pub fn filter(pattern: &str, buffer: &[u8]) -> Result<Vec<(usize, usize)>> {
@@ -20,25 +21,26 @@ pub fn filter(pattern: &str, buffer: &[u8]) -> Result<Vec<(usize, usize)>> {
     Ok(matches)
 }
 
+#[allow(dead_code)]
+pub fn parse_buffer(buffer: &str) -> Vec<u8> {
+    let buffer = buffer
+        .split_whitespace()
+        .filter(|v| !v.is_empty())
+        .map(|v| {
+            #[allow(clippy::unwrap_used)]
+            let temp = u8::from_str_radix(v, 16).unwrap();
+            temp
+        })
+        .collect_vec();
+
+    buffer
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
 
     use super::*;
-    use iter_tools::Itertools;
-
-    fn parse_buffer(buffer: &str) -> Vec<u8> {
-        let buffer = buffer
-            .split_whitespace()
-            .filter(|v| !v.is_empty())
-            .map(|v| {
-                let temp = u8::from_str_radix(v, 16).unwrap();
-                temp
-            })
-            .collect_vec();
-
-        buffer
-    }
 
     #[test]
     fn no_unicode() {
