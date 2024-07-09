@@ -8,99 +8,17 @@
 #![allow(clippy::let_and_return)]
 #![allow(clippy::missing_errors_doc)]
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use filter::filter;
+use iter_tools::Itertools;
 use num_format::{Locale, ToFormattedString};
 use pretty_hex::{HexConfig, PrettyHex};
-use std::io::Read;
+use std::io::{stderr, Read};
 use tracing::{debug, Level};
 use tracing_subscriber::FmtSubscriber;
 
 mod filter;
-
-const MAX_MATCH_COUNT: usize = 100;
-
-fn main() -> Result<()> {
-    let log_level = if cfg!(debug_assertions) {
-        Level::TRACE
-    } else {
-        Level::ERROR
-    };
-    let subscriber = FmtSubscriber::builder().with_max_level(log_level).finish();
-
-    tracing::subscriber::set_global_default(subscriber)?;
-
-    let args = Args::parse();
-    let mut buffer = Vec::<u8>::new();
-    let read_size = if let Some(file_path) = args.file {
-        let mut file = std::fs::File::open(file_path)?;
-        file.read_to_end(&mut buffer)?
-    } else {
-        std::io::stdin().read_to_end(&mut buffer)?
-    };
-
-    debug!("file_size: {}", read_size.to_formatted_string(&Locale::en));
-
-    // @todo: doesn't stream matches
-    let matches = filter(&args.pattern, &buffer)?;
-    for (i, &(start, end)) in matches.iter().take(MAX_MATCH_COUNT).enumerate() {
-        let cfg = HexConfig {
-            title: true,
-            ascii: false,
-            width: 16,
-            group: 4,
-            chunk: 1,
-            max_bytes: 256,
-            ..Default::default()
-        };
-
-        // @todo: doesn't work if context input is less than the start of the file
-        if let Some(context) = args.context {
-            let display_offset = start - 0x10;
-            let slice = &buffer
-                .get(display_offset..start + (context - 0x10))
-                .ok_or(anyhow::anyhow!("out of bounds"))?;
-            let cfg = HexConfig {
-                display_offset,
-                ..cfg
-            };
-            println!(
-                "Match {i}/{len}: ({start:#x}, {end:#x}), {dump:?}",
-                i = i + 1,
-                len = matches.len(),
-                dump = slice.hex_conf(cfg)
-            );
-        } else if args.r#match {
-            let slice = &buffer
-                .get(start..end)
-                .ok_or(anyhow::anyhow!("out of bounds"))?;
-            let cfg = HexConfig {
-                display_offset: start,
-                ..cfg
-            };
-            println!(
-                "Match {i}/{len}: ({start:#x}, {end:#x}), {dump:?}",
-                i = i + 1,
-                len = matches.len(),
-                dump = slice.hex_conf(cfg)
-            );
-        } else {
-            println!(
-                "Match {i}/{len}: ({start:#x}, {end:#x})",
-                i = i + 1,
-                len = matches.len()
-            );
-        }
-    }
-
-    if matches.len() > MAX_MATCH_COUNT {
-        let hidden = matches.len() - MAX_MATCH_COUNT;
-        println!("{hidden} matches hidden...");
-    }
-
-    Ok(())
-}
 
 /// Search binary files with regex
 #[derive(Parser, Debug)]
@@ -116,6 +34,94 @@ struct Args {
     /// Show matches with provided context size
     #[arg(short,long, value_parser = parse_hex_or_digit)]
     context: Option<usize>,
+    /// Treat pattern as raw binary. E.g. "de ad be ef"
+    #[arg(short, long)]
+    raw: bool,
+    /// Max number of matches to display
+    #[arg(short = 'M', long, default_value_t = 100)]
+    max_matches: usize,
+}
+
+fn main() -> Result<()> {
+    let log_level = if cfg!(debug_assertions) {
+        Level::TRACE
+    } else {
+        Level::ERROR
+    };
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(log_level)
+        .with_writer(stderr)
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber)?;
+
+    let args = Args::parse();
+    let mut buffer = Vec::<u8>::new();
+    let read_size = if let Some(file_path) = args.file {
+        let mut file = std::fs::File::open(file_path)?;
+        file.read_to_end(&mut buffer)?
+    } else {
+        std::io::stdin().read_to_end(&mut buffer)?
+    };
+
+    debug!("file_size: {}", read_size.to_formatted_string(&Locale::en));
+
+    let pattern = if args.raw {
+        get_raw_pattern(&args.pattern)?
+    } else {
+        args.pattern
+    };
+    debug!("pattern: {}", &pattern);
+    let matches = filter(&pattern, &buffer)?;
+    for (i, &(start, end)) in matches.iter().take(args.max_matches).enumerate() {
+        let cfg = HexConfig {
+            title: true,
+            ascii: false,
+            width: 16,
+            group: 4,
+            chunk: 1,
+            max_bytes: 256,
+            ..Default::default()
+        };
+
+        let match_details = if let Some(context) = args.context {
+            let display_offset = start.checked_sub(0x10).unwrap_or_default();
+            let slice = buffer
+                .get(display_offset..start + (context.checked_sub(0x10).unwrap_or_default()))
+                .ok_or(anyhow::anyhow!("out of bounds"))?;
+            let cfg = HexConfig {
+                display_offset,
+                ..cfg
+            };
+            Some((slice, cfg))
+        } else if args.r#match {
+            let slice = buffer
+                .get(start..end)
+                .ok_or(anyhow::anyhow!("out of bounds"))?;
+            let cfg = HexConfig {
+                display_offset: start,
+                ..cfg
+            };
+            Some((slice, cfg))
+        } else {
+            None
+        };
+
+        println!(
+            "{n}: [{start:#x}, {end:#x}): {len}",
+            n = i + 1,
+            len = end - start
+        );
+        if let Some((slice, cfg)) = match_details {
+            println!("{:?}", slice.hex_conf(cfg));
+        }
+    }
+
+    if matches.len() > args.max_matches {
+        println!("...");
+    }
+
+    Ok(())
 }
 
 fn parse_hex_or_digit(arg: &str) -> Result<usize> {
@@ -124,4 +130,16 @@ fn parse_hex_or_digit(arg: &str) -> Result<usize> {
     }
 
     Ok(arg.parse()?)
+}
+
+fn get_raw_pattern(pattern: &str) -> Result<String> {
+    let bytes: Vec<u8> = pattern
+        .trim()
+        .split(' ')
+        .map(|v| u8::from_str_radix(v, 16))
+        .try_collect()
+        .context("invalid raw bytes pattern")?;
+    let formatted_bytes = bytes.iter().map(|&v| format!(r"\x{v:x}")).join("");
+
+    Ok(formatted_bytes)
 }

@@ -2,6 +2,8 @@
 
 A grep-like tool for searching binary files with regex
 
+> Warning: Unstable and may change
+
 ## Build
 
 ```sh
