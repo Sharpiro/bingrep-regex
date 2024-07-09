@@ -1,8 +1,8 @@
-# bingrep
+# bingrep-regex
 
 A grep-like tool for searching binary files with regex
 
-> Warning: Unstable and may change
+> Warning: Usage is unstable and will change
 
 ## Build
 
@@ -13,17 +13,17 @@ cargo build --release
 ## Usage
 
 ```sh
-bingrep --help
+bgr --help
 ```
 
 Example:
 
 ```sh
 # find location of species in Pokemon Crystal
-bingrep '\x01.{31}\x02.{31}\x03.{31}\x04.{31}\x05.{31}\x06' pokecrystal.gbc
+bgr '\x01.{31}\x02.{31}\x03.{31}\x04.{31}\x05.{31}\x06' pokecrystal.gbc
 ```
 
 ```sh
-# prints the matches in format `(start, end)`
-Match 1/1: (0x51424, 0x514c5)
+# prints the matches in format `[<start>, <end>): <len>`
+1: [0x51424, 0x514c5): 161
 ```

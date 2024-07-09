@@ -14,7 +14,10 @@ use filter::filter;
 use iter_tools::Itertools;
 use num_format::{Locale, ToFormattedString};
 use pretty_hex::{HexConfig, PrettyHex};
-use std::io::{stderr, Read};
+use std::{
+    cmp::max,
+    io::{stderr, Read},
+};
 use tracing::{debug, Level};
 use tracing_subscriber::FmtSubscriber;
 
@@ -85,12 +88,17 @@ fn main() -> Result<()> {
         };
 
         let match_details = if let Some(context) = args.context {
-            let display_offset = start.checked_sub(0x10).unwrap_or_default();
+            let display_start = start.checked_sub(context).unwrap_or_default();
+            let display_end = context
+                .checked_add(0x10)
+                .and_then(|v| start.checked_add(v))
+                .unwrap_or_default();
+            let display_end = max(display_end, context);
             let slice = buffer
-                .get(display_offset..start + (context.checked_sub(0x10).unwrap_or_default()))
+                .get(display_start..display_end)
                 .ok_or(anyhow::anyhow!("out of bounds"))?;
             let cfg = HexConfig {
-                display_offset,
+                display_offset: display_start,
                 ..cfg
             };
             Some((slice, cfg))
@@ -139,7 +147,7 @@ fn get_raw_pattern(pattern: &str) -> Result<String> {
         .map(|v| u8::from_str_radix(v, 16))
         .try_collect()
         .context("invalid raw bytes pattern")?;
-    let formatted_bytes = bytes.iter().map(|&v| format!(r"\x{v:x}")).join("");
+    let formatted_bytes = bytes.iter().map(|&v| format!(r"\x{v:02x}")).join("");
 
     Ok(formatted_bytes)
 }
