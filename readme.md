@@ -31,9 +31,9 @@ bgr --help
 bgr '\x01.{31}\x02.{31}\x03.{31}\x04.{31}\x05.{31}\x06' pokecrystal.gbc
 ```
 
-#### Raw Bytes
+#### Experimental binary syntax with partial regex support
 
 ```sh
 # find location of species in Pokemon Crystal
-bgr -r '01 2d 31' pokecrystal.gbc
+bgr -b '01 2d [31|32].2d' pokecrystal.gbc
 ```

@@ -11,22 +11,20 @@
 #![allow(clippy::cast_sign_loss)]
 #![allow(clippy::cast_precision_loss)]
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use clap::Parser;
 use filter::filter;
-use iter_tools::Itertools;
 use num_format::{Locale, ToFormattedString};
 use options::get_context_range;
+use parser::parse_binary_syntax;
 use pretty_hex::{HexConfig, PrettyHex};
-use std::{
-    borrow::Cow,
-    io::{stderr, Read},
-};
+use std::io::{stderr, Read};
 use tracing::{debug, Level};
 use tracing_subscriber::FmtSubscriber;
 
 mod filter;
 mod options;
+mod parser;
 
 /// Search binary files with regex
 #[derive(Parser, Debug)]
@@ -39,9 +37,9 @@ struct Args {
     /// Show additional lines of context
     #[arg(short,long, value_parser = parse_hex_or_digit)]
     context: Option<usize>,
-    /// Treat pattern as raw binary. E.g. "de ad be ef"
+    /// Experimental binary syntax with partial regex support. E.g. "dead be [ef|ed]"
     #[arg(short, long)]
-    raw: bool,
+    binary_syntax: bool,
     /// Limit number of matches to display
     #[arg(short, long)]
     limit: Option<usize>,
@@ -71,15 +69,19 @@ fn main() -> Result<()> {
 
     debug!("file_size: {}", read_size.to_formatted_string(&Locale::en));
 
-    let pattern = if args.raw {
-        get_raw_pattern(&args.pattern)
+    let resolved_pattern = if args.binary_syntax {
+        parse_binary_syntax(&args.pattern)
     } else {
         args.pattern
     };
-    debug!("pattern: {}", &pattern);
+    debug!(
+        "resolved pattern: {}, len: {}",
+        &resolved_pattern,
+        resolved_pattern.len()
+    );
 
     let max_matches = args.limit.unwrap_or(usize::MAX);
-    let matches = filter(&pattern, &buffer)?;
+    let matches = filter(&resolved_pattern, &buffer)?;
     for (i, &(start, end)) in matches.iter().take(max_matches).enumerate() {
         let cfg = HexConfig {
             title: true,
@@ -120,19 +122,4 @@ fn parse_hex_or_digit(arg: &str) -> Result<usize> {
     }
 
     Ok(arg.parse()?)
-}
-
-fn get_raw_pattern(pattern: &str) -> String {
-    pattern
-        .trim()
-        .split(' ')
-        .map(|v| {
-            let is_hex = u8::from_str_radix(v, 16).is_ok();
-            if is_hex {
-                Cow::from(format!(r"\x{v}"))
-            } else {
-                Cow::from(v)
-            }
-        })
-        .join("")
 }

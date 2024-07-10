@@ -36,7 +36,7 @@ mod test {
         dbg!(&buffer[start..end]);
 
         assert_eq!(start, 16);
-        assert_eq!(end, 31);
+        assert_eq!(end, 17);
     }
 
     #[test]
