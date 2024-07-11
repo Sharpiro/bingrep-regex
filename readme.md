@@ -19,16 +19,21 @@ bgr --help
 
 ### Search
 
-```sh
-# prints the matches in format `<no>: [<start_inclusive>, <end_exclusive>): <len>`
-1: [0x51424, 0x514c5): 161
-```
+Prints each match start address on new line
 
 #### Regex
 
 ```sh
 # find location of species in Pokemon Crystal
 bgr '\x01.{31}\x02.{31}\x03.{31}\x04.{31}\x05.{31}\x06' pokecrystal.gbc
+```
+
+#### Context
+
+More details about matches can be displayed with the `--context` or `-c` option starting with value `0`.
+
+```sh
+bgr -c 0 '\x01.{31}\x02.{31}\x03.{31}\x04.{31}\x05.{31}\x06' pokecrystal.gbc
 ```
 
 #### Experimental binary syntax with partial regex support

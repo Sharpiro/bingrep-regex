@@ -13,17 +13,17 @@
 
 use anyhow::Result;
 use clap::Parser;
+use context::get_context_range;
 use filter::filter;
 use num_format::{Locale, ToFormattedString};
-use options::get_context_range;
 use parser::parse_binary_syntax;
 use pretty_hex::{HexConfig, PrettyHex};
 use std::io::{stderr, Read};
 use tracing::{debug, Level};
 use tracing_subscriber::FmtSubscriber;
 
+mod context;
 mod filter;
-mod options;
 mod parser;
 
 /// Search binary files with regex
@@ -74,15 +74,11 @@ fn main() -> Result<()> {
     } else {
         args.pattern
     };
-    debug!(
-        "resolved pattern: {}, len: {}",
-        &resolved_pattern,
-        resolved_pattern.len()
-    );
+    debug!("pattern: '{}'", &resolved_pattern);
 
     let max_matches = args.limit.unwrap_or(usize::MAX);
     let matches = filter(&resolved_pattern, &buffer)?;
-    for (i, &(start, end)) in matches.iter().take(max_matches).enumerate() {
+    for &(start, end) in matches.iter().take(max_matches) {
         let cfg = HexConfig {
             title: true,
             ascii: false,
@@ -92,7 +88,6 @@ fn main() -> Result<()> {
             ..Default::default()
         };
 
-        let match_len = end - start;
         let match_details = if let Some(context) = args.context {
             let (display_start, display_end) = get_context_range(start, end, context);
             let slice = buffer
@@ -107,9 +102,11 @@ fn main() -> Result<()> {
             None
         };
 
-        println!("{n}: [{start:#x}, {end:#x}): {match_len}", n = i + 1);
         if let Some((slice, cfg)) = match_details {
+            println!("{start:#x}:{end:#x}");
             println!("{:?}", slice.hex_conf(cfg));
+        } else {
+            println!("{start:#x}");
         }
     }
 

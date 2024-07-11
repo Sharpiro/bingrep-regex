@@ -7,9 +7,9 @@ pub fn get_context_range(start: usize, end: usize, context_lines: usize) -> (usi
 
     let context_size = context_lines * LINE_LENGTH;
     let context_start = start.saturating_sub(context_size);
-    let context_start = (context_start as f64 / 16.0).floor() as usize * 16;
-    let context_end = end.saturating_add(context_size);
-    let context_end = (context_end as f64 / 16.0).ceil() as usize * 16 - 1;
+    let context_start = (context_start as f64 / LINE_LENGTH as f64).floor() as usize * LINE_LENGTH;
+    let context_end = (end as f64 / LINE_LENGTH as f64).ceil() as usize * LINE_LENGTH;
+    let context_end = context_end.saturating_add(context_size);
 
     (context_start, context_end)
 }
@@ -26,11 +26,11 @@ mod test {
         let buffer = parse_buffer(
             "
             00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
-            FF 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
+            ff 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
             00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
             ",
         );
-        let &(start, end) = filter(r"\xFF", &buffer).unwrap().first().unwrap();
+        let &(start, end) = filter(r"\xff", &buffer).unwrap().first().unwrap();
         let (start, end) = get_context_range(start, end, 0);
 
         dbg!(&buffer[start..end]);
@@ -44,17 +44,17 @@ mod test {
         let buffer = parse_buffer(
             "
             00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
-            FF 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
+            ff 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
             00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
             ",
         );
-        let &(start, end) = filter(r"\xFF", &buffer).unwrap().first().unwrap();
+        let &(start, end) = filter(r"\xff", &buffer).unwrap().first().unwrap();
         let (start, end) = get_context_range(start, end, 1);
 
         dbg!(&buffer[start..end]);
 
         assert_eq!(start, 0);
-        assert_eq!(end, 47);
+        assert_eq!(end, 48);
     }
 
     #[test]
@@ -63,20 +63,20 @@ mod test {
             "
             00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
             00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
-            FF 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
+            ff 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
             00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
             00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
             00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
             00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
             ",
         );
-        let &(start, end) = filter(r"\xFF", &buffer).unwrap().first().unwrap();
+        let &(start, end) = filter(r"\xff", &buffer).unwrap().first().unwrap();
         let (start, end) = get_context_range(start, end, 4);
 
         dbg!(&buffer[start..end]);
 
         assert_eq!(start, 0);
-        assert_eq!(end, 111);
+        assert_eq!(end, 112);
     }
 
     #[test]
@@ -85,17 +85,17 @@ mod test {
             "
             00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
             00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
-            00 00 00 00  FF 00 00 00  00 00 00 00  00 00 00 00
+            00 00 00 00  ff 00 00 00  00 00 00 00  00 00 00 00
             00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
             00 00 00 00  00 00 00 00  00 00 00 00  00 00 00 00
             ",
         );
-        let &(start, end) = filter(r"\xFF", &buffer).unwrap().first().unwrap();
+        let &(start, end) = filter(r"\xff\x00", &buffer).unwrap().first().unwrap();
         let (start, end) = get_context_range(start, end, 1);
 
         println!("{:#?}", &buffer[start..end]);
 
         assert_eq!(start, 16);
-        assert_eq!(end, 63);
+        assert_eq!(end, 64);
     }
 }
